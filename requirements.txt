@@ -1,0 +1,4 @@
+PyQt6>=6.0.0
+watchdog>=2.1.0
+pywin32>=305
+mouse>=0.7.1
