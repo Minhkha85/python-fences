@@ -1,4 +1,4 @@
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppName "Python Fences"
 #define MyAppExeName "PythonFences.exe"
 #define MyAppPublisher "Minhkha85"
