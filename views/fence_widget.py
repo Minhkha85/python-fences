@@ -855,18 +855,17 @@ class FenceWidget(QWidget):
                 self.toggle_rollup()
 
     def toggle_rollup(self):
-        if not self.is_rolled_up:
-            # Roll up
-            self.normal_height = self.height()
-            self.content_area.hide()
-            self.setFixedHeight(self.header.height() + 10)
-            self.is_rolled_up = True
+        """Toggle trạng thái cuộn/mở của fence"""
+        self.fence.is_rolled_up = not self.fence.is_rolled_up
+        if self.fence.is_rolled_up:
+            self.old_height = self.height()
+            self.resize(self.width(), self.header.height())
         else:
-            # Roll down
-            self.setFixedHeight(self.normal_height)
-            self.setMaximumHeight(16777215)  # Reset maximum height
-            self.content_area.show()
-            self.is_rolled_up = False
+            self.resize(self.width(), self.old_height)
+        
+        # Lưu cấu hình sau khi thay đổi
+        if hasattr(self.parent(), 'parent') and hasattr(self.parent().parent(), 'save_fences'):
+            self.parent().parent().save_fences()
 
     def open_item(self, path):
         """Mở file hoặc folder khi click"""
@@ -888,6 +887,7 @@ class FenceWidget(QWidget):
                 self.setWindowFlags(
                     Qt.WindowType.FramelessWindowHint |
                     Qt.WindowType.Tool
+                    # Không thêm WindowStaysOnTopHint khi pin to desktop
                 )
                 
                 # Đặt làm con của desktop
@@ -895,6 +895,7 @@ class FenceWidget(QWidget):
                     self.always_on_desktop = True
                     self.show()
                     self.move(self.normal_pos)
+                    self.lower()  # Đảm bảo fence nằm dưới các cửa sổ khác
                     logging.debug("Successfully pinned to desktop")
                 else:
                     self.unpin_from_desktop()
@@ -929,23 +930,20 @@ class FenceWidget(QWidget):
                 self.hide()
 
     def unpin_from_desktop(self):
-        """Gỡ khỏi desktop và khôi phục trạng thái ban đầu"""
+        """Gỡ khỏi desktop và trở về chế độ normal"""
         try:
-            if hasattr(self, 'normal_pos'):
-                current_pos = self.normal_pos
-            else:
-                current_pos = self.pos()
-            
-            self.setParent(self.original_parent)
+            # Khôi phục parent và flags
+            self.setParent(self.parent())
             self.setWindowFlags(
-                Qt.WindowType.FramelessWindowHint | 
+                Qt.WindowType.FramelessWindowHint |
                 Qt.WindowType.Tool |
-                Qt.WindowType.WindowStaysOnTopHint
+                Qt.WindowType.WindowStaysOnTopHint  # Chỉ thêm flag này khi unpin
             )
-            
             self.always_on_desktop = False
             self.show()
-            self.move(current_pos)
+            if hasattr(self, 'normal_pos'):
+                self.move(self.normal_pos)
+            self.raise_()  # Đảm bảo fence hiển thị trên các cửa sổ khác khi unpin
             logging.debug("Successfully unpinned from desktop")
         except Exception as e:
             logging.exception("Error in unpin_from_desktop:")

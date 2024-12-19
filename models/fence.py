@@ -28,15 +28,26 @@ class Fence:
             "title": self.title,
             "position": self.position,
             "size": self.size,
-            "items": [{"path": item["path"], "name": item["name"]} for item in self.items]
+            "items": self.items,
+            "is_visible": self.is_visible,
+            "is_rolled_up": self.is_rolled_up
         }
 
     @classmethod
-    def from_dict(cls, data):
+    def from_dict(cls, data: dict):
+        """Tạo instance từ dictionary"""
+        # Validate dữ liệu đầu vào
+        required_fields = ['id', 'title', 'position', 'size', 'items']
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"Missing required field: {field}")
+                
         return cls(
-            id=data.get("id"),
-            title=data.get("title"),
-            position=tuple(data.get("position", (0, 0))),
-            size=tuple(data.get("size", (300, 400))),
-            items=data.get("items", [])
+            id=data["id"],
+            title=data["title"],
+            position=tuple(data["position"]),
+            size=tuple(data["size"]),
+            items=data["items"],
+            is_visible=data.get("is_visible", True),
+            is_rolled_up=data.get("is_rolled_up", False)
         )

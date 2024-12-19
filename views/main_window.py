@@ -79,9 +79,11 @@ class MainWindow(QMainWindow):
             new_fence = Fence(
                 id=str(uuid4()),
                 title="New Fence",
-                position=(cursor_pos.x() - 150, cursor_pos.y() - 200),  # Điều chỉnh vị trí để fence không bị che con trỏ
+                position=(cursor_pos.x() - 150, cursor_pos.y() - 200),  # Điều chỉnh vị trí
                 size=(300, 400),
-                items=[]
+                items=[],
+                is_visible=True,
+                is_rolled_up=False
             )
             
             # Tạo widget cho fence
@@ -164,7 +166,7 @@ class MainWindow(QMainWindow):
                 logging.warning("Skipping context menu registration - not running as admin")
                 return False
             
-            key_path = r"Directory\Background\shell\PythonFences"
+            key_path = r"Directory\Background\shell\NewFence"
             command_path = os.path.join(key_path, "command")
             
             try:
@@ -179,25 +181,31 @@ class MainWindow(QMainWindow):
                 winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, key_path)
                 key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, key_path, 0, 
                                    winreg.KEY_WRITE)
+                
+                # Đặt tên hiển thị
                 winreg.SetValueEx(key, "", 0, winreg.REG_SZ, "New Fence Here")
                 
-                # Thay đổi icon - sử dụng icon của bạn
-                icon_path = os.path.abspath("assets/fence_icon.ico")  # Đặt icon của bạn trong thư mục assets
+                # Đặt icon và position
+                icon_path = os.path.join(os.path.dirname(sys.executable), "assets", "kha.ico")
                 winreg.SetValueEx(key, "Icon", 0, winreg.REG_SZ, icon_path)
-                winreg.CloseKey(key)
+                winreg.SetValueEx(key, "Position", 0, winreg.REG_SZ, "Top")
                 
                 # Tạo key cho command
                 winreg.CreateKey(winreg.HKEY_CLASSES_ROOT, command_path)
-                key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, command_path, 0, 
-                                   winreg.KEY_WRITE)
+                cmd_key = winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, command_path, 0, 
+                                       winreg.KEY_WRITE)
                 
-                # Sử dụng pythonw.exe để tránh hiển thị terminal
-                pythonw_path = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
-                cmd = f'"{pythonw_path}" "{os.path.abspath(sys.argv[0])}" --new-fence'
-                winreg.SetValueEx(key, "", 0, winreg.REG_SZ, cmd)
+                # Sử dụng đường dẫn đầy đủ đến executable
+                exe_path = os.path.join(os.path.dirname(sys.executable), "PythonFences.exe")
+                cmd = f'"{exe_path}" --new-fence'
+                
+                winreg.SetValueEx(cmd_key, "", 0, winreg.REG_SZ, cmd)
+                winreg.SetValueEx(cmd_key, "ShowCmd", 0, winreg.REG_DWORD, 0)
+                
+                winreg.CloseKey(cmd_key)
                 winreg.CloseKey(key)
                 
-                logging.info("Context menu registered successfully")
+                logging.info(f"Context menu registered successfully with command: {cmd}")
                 return True
                 
             except Exception as e:
@@ -210,14 +218,21 @@ class MainWindow(QMainWindow):
 
     def handle_command_line(self):
         """Xử lý các tham số dòng lệnh"""
-        parser = argparse.ArgumentParser()
-        parser.add_argument('--new-fence', help='Create new fence at specified location')
-        args = parser.parse_args()
-        
-        if args.new_fence:
-            # Lấy vị trí chuột hiện tại
-            cursor_pos = QCursor.pos()
-            self.create_new_fence_at_cursor()
+        try:
+            parser = argparse.ArgumentParser()
+            parser.add_argument('--new-fence', action='store_true', help='Create new fence at cursor position')
+            args = parser.parse_args()
+            
+            if args.new_fence:
+                # Lấy vị trí chuột hiện tại
+                cursor_pos = QCursor.pos()
+                logging.info(f"Creating new fence from context menu at position: {cursor_pos.x()}, {cursor_pos.y()}")
+                self.create_new_fence_at_cursor()
+                # Đảm bảo cửa sổ được hiển thị
+                self.show()
+                self.activateWindow()
+        except Exception as e:
+            logging.error(f"Error handling command line: {e}")
 
     def closeEvent(self, event):
         self.cleanup_registry()
@@ -229,15 +244,16 @@ class MainWindow(QMainWindow):
             fences_data = []
             for fence in self.fences:
                 if isinstance(fence, FenceWidget):
-                    fences_data.append({
+                    fence_dict = {
                         'id': fence.fence.id,
                         'title': fence.fence.title,
-                        'position': (fence.x(), fence.y()),
-                        'size': (fence.width(), fence.height()),
+                        'position': [fence.x(), fence.y()],  # Chuyển thành list thay vì tuple
+                        'size': [fence.width(), fence.height()],
                         'items': fence.fence.items,
                         'is_visible': fence.isVisible(),
                         'is_rolled_up': fence.fence.is_rolled_up
-                    })
+                    }
+                    fences_data.append(fence_dict)
             
             # Sử dụng ConfigService để lưu
             self.config_service.save_fences(fences_data)
@@ -251,7 +267,12 @@ class MainWindow(QMainWindow):
             fences_data = self.config_service.load_fences()
             if fences_data:
                 for fence_data in fences_data:
-                    fence = Fence.from_dict(fence_data)
+                    # Chuyển đổi từ Fence object thành dict trước khi tạo mới
+                    if isinstance(fence_data, Fence):
+                        fence_dict = fence_data.to_dict()
+                        fence = Fence.from_dict(fence_dict)
+                    else:
+                        fence = Fence.from_dict(fence_data)
                     self.add_fence(fence)
                 logging.info("Fences loaded successfully")
         except Exception as e:
@@ -266,7 +287,9 @@ class MainWindow(QMainWindow):
         if hasattr(fence, 'is_visible'):
             fence_widget.setVisible(fence.is_visible)
         if hasattr(fence, 'is_rolled_up'):
-            fence_widget.set_rolled_up(fence.is_rolled_up)
+            fence_widget.fence.is_rolled_up = fence.is_rolled_up
+            if fence.is_rolled_up:
+                fence_widget.toggle_rollup()
         
         self.fences.append(fence_widget)
         fence_widget.setParent(self.centralWidget())

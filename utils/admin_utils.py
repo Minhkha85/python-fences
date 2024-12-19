@@ -1,5 +1,7 @@
 import ctypes
 import logging
+import os
+import sys
 
 def is_admin():
     """Kiểm tra xem ứng dụng có đang chạy với quyền admin không"""
@@ -12,11 +14,16 @@ def run_as_admin(executable_path, script_path):
     """Chạy ứng dụng với quyền admin"""
     try:
         if not is_admin():
+            # Sử dụng pythonw.exe từ venv
+            pythonw_path = os.path.join(os.path.dirname(sys.executable), "pythonw.exe")
+            if not os.path.exists(pythonw_path):
+                pythonw_path = os.path.join("venv", "Scripts", "pythonw.exe")
+                
             ctypes.windll.shell32.ShellExecuteW(
                 None, 
                 "runas",
-                executable_path,
-                f'"{script_path}"',
+                pythonw_path,
+                script_path,
                 None,
                 1
             )

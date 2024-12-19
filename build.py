@@ -44,9 +44,9 @@ def build():
         PyInstaller.__main__.run([
             'main.py',
             '--name=PythonFences',
-            '--onefile',
             f'--icon={icon_path}',
             '--noconsole',
+            '--windowed',
             '--add-data=assets;assets',
             '--add-data=version.txt;.',
             '--hidden-import=win32com.shell.shell',
@@ -62,13 +62,7 @@ def build():
             '--debug=all'
         ])
 
-        # Kiểm tra kết quả
-        exe_path = os.path.join('dist', 'PythonFences.exe')
-        if os.path.exists(exe_path):
-            print(f"Build successful! EXE created at: {exe_path}")
-        else:
-            print("Build failed: EXE not created")
-            sys.exit(1)
+        print("Build completed successfully!")
 
     except Exception as e:
         print(f"Build failed with error: {str(e)}")

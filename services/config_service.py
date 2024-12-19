@@ -3,6 +3,7 @@ import os
 import sys
 from typing import List
 from models.fence import Fence
+import logging
 
 class ConfigService:
     def __init__(self):
@@ -32,17 +33,18 @@ class ConfigService:
         except Exception as e:
             print(f"Error creating config file: {e}")
             
-    def save_fences(self, fences: List[Fence]):
+    def save_fences(self, fences: List[dict]):
+        """Lưu danh sách fences"""
         config = {
             'fences': [
                 {
-                    'id': fence.id,
-                    'title': fence.title,
-                    'position': fence.position,
-                    'size': fence.size,
-                    'items': fence.items,
-                    'is_visible': fence.is_visible,
-                    'is_rolled_up': fence.is_rolled_up
+                    'id': fence['id'],
+                    'title': fence['title'],
+                    'position': fence['position'],
+                    'size': fence['size'],
+                    'items': fence['items'],
+                    'is_visible': fence['is_visible'],
+                    'is_rolled_up': fence['is_rolled_up']
                 }
                 for fence in fences
             ]
@@ -51,7 +53,7 @@ class ConfigService:
         with open(self.config_file, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4)
             
-    def load_fences(self) -> List[Fence]:
+    def load_fences(self) -> List[dict]:
         try:
             if not os.path.exists(self.config_file):
                 self.create_default_config()
@@ -64,15 +66,12 @@ class ConfigService:
                     return []
                     
                 config = json.loads(content)
-                return [
-                    Fence(**fence_data)
-                    for fence_data in config.get('fences', [])
-                ]
+                return config.get('fences', [])
                 
         except json.JSONDecodeError:
             # Nếu file JSON không hợp lệ, tạo mới
             self.create_default_config()
             return []
         except Exception as e:
-            print(f"Error loading fences: {e}")
+            logging.error(f"Error loading fences: {e}")
             return []
