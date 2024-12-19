@@ -15,25 +15,25 @@ class UpdateChecker(QThread):
                 latest_version = response.json()['tag_name'].strip('v')
                 current_version = VERSION
                 
-                if self._compare_versions(latest_version, current_version):
+                if self._compare_versions(latest_version, current_version) and latest_version != current_version:
                     self.update_available.emit(latest_version)
         except Exception as e:
             logging.error(f"Error checking for updates: {e}")
     
     def _compare_versions(self, latest, current):
         """So sánh phiên bản"""
-        latest_parts = list(map(int, latest.split('.')))
-        current_parts = list(map(int, current.split('.')))
+        latest_parts = [int(x) for x in latest.split('.')]
+        current_parts = [int(x) for x in current.split('.')]
         
         for i in range(max(len(latest_parts), len(current_parts))):
-            latest_part = latest_parts[i] if i < len(latest_parts) else 0
-            current_part = current_parts[i] if i < len(current_parts) else 0
+            l = latest_parts[i] if i < len(latest_parts) else 0
+            c = current_parts[i] if i < len(current_parts) else 0
             
-            if latest_part > current_part:
+            if l > c:
                 return True
-            elif latest_part < current_part:
+            elif l < c:
                 return False
-        return False
+        return False  # Versions are equal
 
 def check_for_updates(parent=None):
     """Kiểm tra cập nhật và hiển thị dialog"""
@@ -43,7 +43,7 @@ def check_for_updates(parent=None):
             latest_version = response.json()['tag_name'].strip('v')
             current_version = VERSION
             
-            if latest_version > current_version:
+            if latest_version > current_version and latest_version != current_version:
                 msg = QMessageBox(parent)
                 msg.setWindowTitle("Update Available")
                 msg.setText(f"A new version ({latest_version}) is available!")

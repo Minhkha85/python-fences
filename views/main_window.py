@@ -368,12 +368,8 @@ class MainWindow(QMainWindow):
 
     def check_updates_on_startup(self):
         """Kiểm tra cập nhật khi khởi động"""
-        from utils.updater import UpdateChecker
-        self.update_checker = UpdateChecker()
-        self.update_checker.update_available.connect(self.show_update_notification)
-        self.update_checker.start()
-
-    def show_update_notification(self, version):
-        """Hiển thị thông báo có bản cập nhật mới"""
-        from utils.updater import check_for_updates
-        check_for_updates(self)
+        # Tạm thời comment lại để test
+        # self.update_checker = UpdateChecker()
+        # self.update_checker.update_available.connect(self.show_update_dialog)
+        # self.update_checker.start()
+        pass
