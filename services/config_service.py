@@ -1,11 +1,22 @@
 import json
 import os
+import sys
 from typing import List
 from models.fence import Fence
 
 class ConfigService:
     def __init__(self):
-        self.config_file = "fences_config.json"
+        # Lấy đường dẫn thư mục cài đặt
+        if getattr(sys, 'frozen', False):
+            # Nếu đang chạy từ file exe
+            self.app_dir = os.path.dirname(sys.executable)
+        else:
+            # Nếu đang chạy từ source code
+            self.app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
+        # File config sẽ được lưu trong thư mục cài đặt
+        self.config_file = os.path.join(self.app_dir, "fences_config.json")
+        
         # Tạo file config mặc định nếu chưa tồn tại
         if not os.path.exists(self.config_file):
             self.create_default_config()
@@ -15,8 +26,11 @@ class ConfigService:
         default_config = {
             'fences': []
         }
-        with open(self.config_file, 'w', encoding='utf-8') as f:
-            json.dump(default_config, f, indent=4)
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(default_config, f, indent=4)
+        except Exception as e:
+            print(f"Error creating config file: {e}")
             
     def save_fences(self, fences: List[Fence]):
         config = {

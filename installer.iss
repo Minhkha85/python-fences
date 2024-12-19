@@ -1,4 +1,4 @@
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppName "Python Fences"
 #define MyAppExeName "PythonFences.exe"
 #define MyAppPublisher "Minhkha85"
@@ -26,12 +26,14 @@ Compression=lzma2/ultra
 SolidCompression=yes
 DisableProgramGroupPage=yes
 DisableWelcomePage=no
+PrivilegesRequired=admin
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "startupicon"; Description: "Start automatically with Windows"; GroupDescription: "Additional tasks:"; Flags: checked
 
 [Files]
 Source: "dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
@@ -44,3 +46,9 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(MyAppName, '&', '&&')}}"; Flags: nowait postinstall skipifsilent
+
+[Dirs]
+Name: "{app}"; Permissions: users-modify
+
+[Registry]
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "Python Fences"; ValueData: """{app}\{#MyAppExeName}"""; Flags: uninsdeletevalue

@@ -14,10 +14,14 @@ import json
 import shutil
 import argparse
 from utils.color_utils import color_from_string
+from services.config_service import ConfigService
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        
+        # Khởi tạo ConfigService trước
+        self.config_service = ConfigService()
         
         # Đặt working directory về thư mục gốc của ứng dụng
         app_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -31,7 +35,8 @@ class MainWindow(QMainWindow):
         # Đặt cửa sổ toàn màn hình và trong suốt
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint |
-            Qt.WindowType.Tool
+            Qt.WindowType.Tool |
+            Qt.WindowType.WindowStaysOnBottomHint
         )
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         
@@ -61,6 +66,9 @@ class MainWindow(QMainWindow):
         
         # Show the window
         self.show()
+        
+        # Đảm bảo cửa sổ luôn ở dưới cùng
+        self.lower()
 
     def create_new_fence_at_cursor(self):
         try:
@@ -129,6 +137,13 @@ class MainWindow(QMainWindow):
         quit_action = QAction("Exit", self)
         quit_action.triggered.connect(QApplication.quit)
         tray_menu.addAction(quit_action)
+        
+        # Thêm menu startup
+        startup_action = QAction("Start with Windows", self)
+        startup_action.setCheckable(True)
+        startup_action.setChecked(self.is_startup_enabled())
+        startup_action.triggered.connect(self.toggle_startup)
+        tray_menu.addAction(startup_action)
         
         self.tray_icon.setContextMenu(tray_menu)
         self.tray_icon.show()
@@ -224,49 +239,39 @@ class MainWindow(QMainWindow):
                         'is_rolled_up': fence.fence.is_rolled_up
                     })
             
-            with open("fences_config.json", "w", encoding='utf-8') as f:
-                json.dump(fences_data, f, indent=4, ensure_ascii=False)
+            # Sử dụng ConfigService để lưu
+            self.config_service.save_fences(fences_data)
             logging.info("Fences saved successfully")
         except Exception as e:
             logging.error(f"Error saving fences: {e}", exc_info=True)
 
     def load_fences(self):
         try:
-            # Kiểm tra file tồn tại
-            if not os.path.exists("fences_config.json"):
-                # Tạo file mới với mảng rỗng
-                with open("fences_config.json", "w", encoding='utf-8') as f:
-                    json.dump([], f, indent=4)
-                return
-
-            # Đọc file
-            with open("fences_config.json", "r", encoding='utf-8') as f:
-                content = f.read().strip()
-                if not content:  # Nếu file rỗng
-                    with open("fences_config.json", "w", encoding='utf-8') as f:
-                        json.dump([], f, indent=4)
-                    return
-
-                fences_data = json.loads(content)
-                if fences_data:  # Nếu có dữ liệu
-                    for fence_data in fences_data:
-                        fence = Fence.from_dict(fence_data)
-                        self.add_fence(fence)
-                    logging.info("Fences loaded successfully")
-
+            # Sử dụng ConfigService để load
+            fences_data = self.config_service.load_fences()
+            if fences_data:
+                for fence_data in fences_data:
+                    fence = Fence.from_dict(fence_data)
+                    self.add_fence(fence)
+                logging.info("Fences loaded successfully")
         except Exception as e:
             logging.error(f"Error loading fences: {e}", exc_info=True)
-            # Nếu có lỗi, tạo file mới
-            with open("fences_config.json", "w", encoding='utf-8') as f:
-                json.dump([], f, indent=4)
 
     def add_fence(self, fence):
         fence_widget = FenceWidget(fence)
         fence_widget.move(fence.position[0], fence.position[1])
         fence_widget.resize(fence.size[0], fence.size[1])
+        
+        # Khôi phục trạng thái
+        if hasattr(fence, 'is_visible'):
+            fence_widget.setVisible(fence.is_visible)
+        if hasattr(fence, 'is_rolled_up'):
+            fence_widget.set_rolled_up(fence.is_rolled_up)
+        
         self.fences.append(fence_widget)
         fence_widget.setParent(self.centralWidget())
         fence_widget.show()
+        fence_widget.lower()  # Đảm bảo fence ở dưới các icon desktop
 
     def delete_fence(self, fence_widget):
         """Xóa fence và di chuyển các shortcut ra desktop"""
@@ -373,3 +378,56 @@ class MainWindow(QMainWindow):
         # self.update_checker.update_available.connect(self.show_update_dialog)
         # self.update_checker.start()
         pass
+
+    def is_startup_enabled(self):
+        """Kiểm tra xem ứng dụng có được cài đặt khởi động cùng Windows không"""
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                0,
+                winreg.KEY_READ
+            )
+            try:
+                value, _ = winreg.QueryValueEx(key, "Python Fences")
+                return True
+            except WindowsError:
+                return False
+            finally:
+                winreg.CloseKey(key)
+        except WindowsError:
+            return False
+
+    def toggle_startup(self):
+        """Bật/tắt chế độ khởi động cùng Windows"""
+        try:
+            key = winreg.OpenKey(
+                winreg.HKEY_CURRENT_USER,
+                r"Software\Microsoft\Windows\CurrentVersion\Run",
+                0,
+                winreg.KEY_SET_VALUE | winreg.KEY_QUERY_VALUE
+            )
+            
+            try:
+                value, _ = winreg.QueryValueEx(key, "Python Fences")
+                # Nếu đã có, xóa đi
+                winreg.DeleteValue(key, "Python Fences")
+            except WindowsError:
+                # Nếu chưa có, thêm vào
+                if getattr(sys, 'frozen', False):
+                    # Nếu đang chạy từ file exe
+                    exe_path = sys.executable
+                else:
+                    # Nếu đang chạy từ source
+                    exe_path = os.path.abspath(sys.argv[0])
+                winreg.SetValueEx(
+                    key,
+                    "Python Fences",
+                    0,
+                    winreg.REG_SZ,
+                    f'"{exe_path}"'
+                )
+            finally:
+                winreg.CloseKey(key)
+        except Exception as e:
+            logging.error(f"Error toggling startup: {e}")

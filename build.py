@@ -58,6 +58,7 @@ def build():
             '--hidden-import=PyQt6',
             '--hidden-import=watchdog',
             '--hidden-import=requests',
+            '--uac-admin',
             '--debug=all'
         ])
 

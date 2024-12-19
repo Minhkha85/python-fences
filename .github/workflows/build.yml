@@ -23,8 +23,18 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
+    - name: Download Inno Setup
+      run: |
+        Invoke-WebRequest "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe" -OutFile "innosetup.exe"
+        Start-Process -FilePath "innosetup.exe" -ArgumentList "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" -Wait
+    
     - name: Build with PyInstaller
       run: python build.py
+    
+    - name: Compile Installer
+      run: |
+        & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' installer.iss
+      shell: cmd
     
     - name: Create Release
       id: create_release
@@ -36,6 +46,13 @@ jobs:
         release_name: Release ${{ github.ref }}
         draft: false
         prerelease: false
+        body: |
+          ## What's Changed
+          - Automated build and release
+          - Added installer package
+          
+          ## Installation
+          Download and run PythonFences_Setup.exe
     
     - name: Upload Release Asset
       uses: actions/upload-release-asset@v1
@@ -43,6 +60,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./installer/PythonFences_Setup.exe
-        asset_name: PythonFences_Setup.exe
-        asset_content_type: application/octet-stream 
+        asset_path: ./installer/Python Fences_Setup_${{ github.ref_name }}.exe
+        asset_name: PythonFences_Setup_${{ github.ref_name }}.exe
+        asset_content_type: application/octet-stream
