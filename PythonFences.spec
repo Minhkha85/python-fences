@@ -35,5 +35,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    uac_admin=True,
     icon=['E:\\web-vlh(git)\\Fences\\python-fences\\assets\\kha.ico'],
 )
